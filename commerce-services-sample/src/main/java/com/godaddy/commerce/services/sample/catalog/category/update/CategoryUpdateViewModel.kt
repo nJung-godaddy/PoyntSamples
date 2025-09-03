@@ -2,7 +2,6 @@
 
 package com.godaddy.commerce.services.sample.catalog.category.update
 
-import android.os.Bundle
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.godaddy.commerce.catalog.model.CatalogCategoryTreeNode
@@ -12,10 +11,8 @@ import com.godaddy.commerce.provider.catalog.CatalogContract
 import com.godaddy.commerce.sdk.catalog.CategoryParamsExt
 import com.godaddy.commerce.sdk.catalog.ProductParamsExt
 import com.godaddy.commerce.sdk.catalog.getCatalogCategoryTreeNode
-import com.godaddy.commerce.services.sample.catalog.onSuccess
 import com.godaddy.commerce.services.sample.catalog.product.ProductRecyclerItem
 import com.godaddy.commerce.services.sample.catalog.product.mapToCategoryUiItems
-import com.godaddy.commerce.services.sample.common.extensions.onError
 import com.godaddy.commerce.services.sample.common.viewmodel.CommonState
 import com.godaddy.commerce.services.sample.common.viewmodel.CommonViewModel
 import com.godaddy.commerce.services.sample.common.viewmodel.ToolbarState
@@ -41,15 +38,16 @@ class CategoryUpdateViewModel(
 
     private fun setCategoryState(response: CatalogCategoryTreeNode?) {
         update {
-            val categoryTreeNode = response?.categoryTreeNode
-            val category = categoryTreeNode?.category
+            val categoryTreeNode = response?.categoryTreeNode!!
+            val category = categoryTreeNode.category!!
+            val categoryProducts = category.products.orEmpty().associateBy { id!! }
             copy(
                 updatedCatalogCategoryTreeNode = response,
                 updatedCategoryTreeNode = categoryTreeNode,
                 updatedCategory = category,
-                updatedLabel = category?.label,
-                updatedDisplayOrder = categoryTreeNode?.displayOrder,
-                updatedCategoryProducts = response?.categoryTreeNode?.category?.products
+                updatedLabel = category.label,
+                updatedDisplayOrder = categoryTreeNode.displayOrder,
+                categoryProducts = categoryProducts
             )
         }
     }
@@ -60,7 +58,6 @@ class CategoryUpdateViewModel(
             val bundle = CategoryParamsExt.toBundle(
                 includeProductIds = true
             )
-
             val response =  service.getCatalogCategoryTreeNode(id, bundle)
             setCategoryState(response)
         }
@@ -77,88 +74,67 @@ class CategoryUpdateViewModel(
                 searchTerm = query,
             )
             val response = service.getCatalogProducts(bundle)
-            val products = response?.products.orEmpty()
-
-            update { copy(products = products) }
-            separateProductLists(products)
+            val productMap = response?.products.orEmpty()
+                .associateBy { requireNotNull(it.product.id) }
+            createItems(productMap)
         }
     }
 
-    private fun separateProductLists(allProducts: List<CatalogProduct>) {
-        val existingProductIds = state.updatedCategoryProducts?.map { it.id }?.toSet().orEmpty()
-        val displayOrderMap = state.updatedCategoryProducts?.associate {
-            it.id to it.displayOrder
-        }.orEmpty()
-
-        val addedProducts = allProducts.filter {
-            existingProductIds.contains(it.product.id)
-        }.sortedBy {
-            displayOrderMap[it.product.id]
-        }
-
-        val availableProducts = allProducts.filter {
-            existingProductIds.contains(it.product.id)
-        }
-
-        update {
-            copy(
-                addedProducts = addedProducts,
-                items = availableProducts.map {
-                    it.mapToCategoryUiItems(
-                        isSelected = false,
-                        onDeleteClicked = { catalogProduct -> removeProduct(catalogProduct) },
-                        onSelectClicked = { catalogProduct, _ -> selectProduct(catalogProduct) }
-                    )
-                },
-                addedItems = addedProducts.map {
-                    it.mapToCategoryUiItems(
-                        isSelected = true,
-                        onDeleteClicked = { catalogProduct -> removeProduct(catalogProduct) },
-                        onSelectClicked = { _, _ -> }
-                    )
-                }
+    private fun createItems(productMap: Map<String, CatalogProduct>) {
+        val addedProducts = state.categoryProducts
+        val otherProducts = productMap.minus(addedProducts.keys)
+        val addedItems = addedProducts.keys.associateWith { id ->
+            val product = productMap[id]!!
+            product.mapToCategoryUiItems(
+                isSelected = true,
+                onDeleteClicked = {catalogProduct -> removeProduct(catalogProduct)},
+                onSelectClicked = { _, _ ->}
             )
         }
+        val otherItems = otherProducts.entries.associate {
+            it.key to it.value.mapToCategoryUiItems(
+                isSelected = false,
+                onDeleteClicked = {catalogProduct -> removeProduct(catalogProduct)},
+                onSelectClicked = { catalogProduct, _ -> selectProduct(catalogProduct)}
+            )
+        }
+        update{ copy(
+            addedItems = addedItems,
+            items = otherItems
+        )}
     }
 
     private fun selectProduct(catalogProduct: CatalogProduct) {
-        val productId = requireNotNull(catalogProduct.product.id)
+        val productId = catalogProduct.product.id!!
+        if (state.categoryProducts.contains(productId)) { return }
 
-        if (state.updatedCategoryProducts?.any { it.id == productId } == true) {
-            return
-        }
-
+        val productItem = state.items[productId]!!
+        val nextDisplayOrder = state.categoryProducts.size + 1
+        // @TODO: IF WE DO LINKED HASH IMPLEMENTATION, COULD APPEND TO END EASY
+        //  AND LET USER ADJUST ORDER EASILY
+        // CURRENT IMP HAS ISSUE WITH WHEN SIZE DECREASES AGIAN DUPLICATES CAN EXIST
+        val addedCategoryProduct = Pair(productId, CategoryProduct(
+            id = productId,
+            displayOrder = nextDisplayOrder + 1
+        ))
         update {
             copy(
-                addedProducts = addedProducts + catalogProduct,
                 selectedProduct = catalogProduct,
-                items = items.filterNot { it.item == catalogProduct },
-                addedItems = addedItems + catalogProduct.mapToCategoryUiItems(
-                    isSelected = true,
-                    onDeleteClicked = { removeProduct(it) },
-                    onSelectClicked = { _, _ -> }
-                ),
-                updatedCategoryProducts = updatedCategoryProducts.orEmpty() + CategoryProduct(
-                    id = productId,
-                    displayOrder = updatedCategoryProducts.orEmpty().size + 1
-                )
+                items = items.minus(productId),
+                addedItems = addedItems.plus(Pair(productId, productItem)),
+                categoryProducts = categoryProducts.plus(addedCategoryProduct)
             )
         }
     }
 
     private fun removeProduct(catalogProduct: CatalogProduct) {
         val productId = requireNotNull(catalogProduct.product.id)
-
+        val productItem = state.addedItems[productId]!!
         update {
             copy(
-                addedProducts = addedProducts - catalogProduct,
-                updatedCategoryProducts = updatedCategoryProducts?.filterNot { it.id == productId },
-                addedItems = addedItems.filterNot { it.item == catalogProduct },
-                items = listOf(catalogProduct.mapToCategoryUiItems(
-                    isSelected = false,
-                    onDeleteClicked = { removeProduct(it) },
-                    onSelectClicked = { _, _ -> selectProduct(catalogProduct) }
-                )) + items
+                categoryProducts = categoryProducts.minus(productId),
+                addedItems = addedItems.minus(productId),
+                items = items.plus(Pair(productId, productItem))
             )
         }
     }
@@ -186,7 +162,7 @@ class CategoryUpdateViewModel(
                 label = state.updatedLabel,
                 shortLabel = state.updatedShortLabel,
                 displayOrder = state.updatedDisplayOrder,
-                products = state.updatedCategoryProducts,
+                products = state.categoryProducts.values.toList(),
             )
             val categoryTreeNode = CategoryTreeNode(
                 id = state.updatedCategoryTreeNode?.id,
@@ -205,12 +181,6 @@ class CategoryUpdateViewModel(
             update { copy(updatedCategoryId = updatedCategory?.id) }
         }
     }
-    /**
-     * @property addedProducts holds all current CatalogProducts to be added to the new category
-     * @property addedItems holds all the recyclable items of catalog products from addedProducts
-     * @property products holds all un-added CatalogProducts
-     * @property items holds recyclable items from products
-     */
     data class State(
         override val commonState: CommonState = CommonState(),
         override val toolbarState: ToolbarState = ToolbarState(title = "Category Update"),
@@ -222,12 +192,10 @@ class CategoryUpdateViewModel(
         val updatedLabel: String? = null,
         val updatedShortLabel: String? = null,
         val updatedDisplayOrder: Int? = null,
-        val updatedCategoryProducts: List<CategoryProduct>? = emptyList(),
-
-        val addedProducts: List<CatalogProduct> = emptyList(),
-        val products: List<CatalogProduct> = emptyList(),
-        val items: List<ProductRecyclerItem> = emptyList(),
-        val addedItems: List<ProductRecyclerItem> = emptyList(),
+        val categoryProducts: Map<String, CategoryProduct> = emptyMap(),
+        val items: Map<String, ProductRecyclerItem> = emptyMap(),
+        val addedItems:Map<String, ProductRecyclerItem> = emptyMap(),
+        val selectedProductId: String? = null,
 
         val selectedProduct: CatalogProduct? = null,
     ) : ViewModelState

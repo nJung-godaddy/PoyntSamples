@@ -49,7 +49,6 @@ class TaxViewModel : CommonViewModel<TaxViewModel.State>(State()) {
             val response = service.getCatalogTaxes(bundle)
             update { copy(items = response?.taxes.orEmpty().map { it.mapToUiItems() }) }
         }
-
     }
 
     data class State(

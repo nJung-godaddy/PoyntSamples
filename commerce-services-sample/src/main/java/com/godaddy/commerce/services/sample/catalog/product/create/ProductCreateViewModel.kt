@@ -2,14 +2,11 @@
 
 package com.godaddy.commerce.services.sample.catalog.product.create
 
-import android.os.Bundle
 import androidx.lifecycle.viewModelScope
 import com.godaddy.commerce.catalog.model.CatalogProduct
 import com.godaddy.commerce.sdk.catalog.createCatalogProduct
-import com.godaddy.commerce.services.sample.catalog.onSuccess
 import com.godaddy.commerce.services.sample.common.util.SkuFormatter
 import com.godaddy.commerce.services.sample.common.util.DEFAULT_CURRENCY_CODE
-import com.godaddy.commerce.services.sample.common.extensions.onError
 import com.godaddy.commerce.services.sample.common.viewmodel.CommonState
 import com.godaddy.commerce.services.sample.common.viewmodel.CommonViewModel
 import com.godaddy.commerce.services.sample.common.viewmodel.ToolbarState
@@ -20,7 +17,6 @@ import com.godaddy.commercecore.models.PricingInfo
 import com.godaddy.commercecore.models.Product
 import com.godaddy.commercecore.models.SellableProduct
 import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.suspendCancellableCoroutine
 
 
 class ProductCreateViewModel : CommonViewModel<ProductCreateViewModel.State>(State()) {
@@ -30,7 +26,6 @@ class ProductCreateViewModel : CommonViewModel<ProductCreateViewModel.State>(Sta
     private fun setMoneyValue(value: Long): Money{
         return Money(DEFAULT_CURRENCY_CODE, value)
     }
-
     fun onProductLabelChanged(value: String) {
         update { copy(label = value) }
     }
@@ -48,7 +43,6 @@ class ProductCreateViewModel : CommonViewModel<ProductCreateViewModel.State>(Sta
             ) }
         }
     }
-
     fun onProductQuantityChanged(value: String){
         value.toIntOrNull()?.let {
             update { copy(quantity = it)} }
@@ -58,7 +52,6 @@ class ProductCreateViewModel : CommonViewModel<ProductCreateViewModel.State>(Sta
             update { copy(threshold = it)}
         }
     }
-
     fun createProduct() {
         execute {
             val label = requireNotNull(state.label)

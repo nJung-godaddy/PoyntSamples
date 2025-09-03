@@ -1,7 +1,6 @@
 package com.godaddy.commerce.services.sample.catalog.tax.create
 
 import android.os.Bundle
-import android.util.Log
 import android.view.View
 import android.widget.Toast
 import androidx.fragment.app.viewModels
@@ -14,9 +13,7 @@ import com.godaddy.commerce.services.sample.common.extensions.observableField
 import com.godaddy.commerce.services.sample.common.view.CommonFragment
 import com.godaddy.commerce.services.sample.common.view.bindOnCommonViewModelUpdates
 import com.godaddy.commerce.services.sample.databinding.TaxCreateFragmentBinding
-import com.godaddy.commerce.services.sample.catalog.tax.create.TaxCreateViewModel.DialogType
-import com.godaddy.commerce.services.sample.catalog.tax.update.TaxUpdateViewModel
-import timber.log.Timber
+import com.godaddy.commerce.services.sample.common.util.TaxDialogType
 
 class TaxCreateFragment :
     CommonFragment<TaxCreateFragmentBinding>(R.layout.tax_create_fragment) {
@@ -60,14 +57,13 @@ class TaxCreateFragment :
             keySelector = { it.dialogType },
             map = { this },
             update = {
-                if (it.dialogType != null && it.dialogType != DialogType.NO_SHOW){
+                if (it.dialogType != null && it.dialogType != TaxDialogType.NO_SHOW){
                     handleProductDialog(it.dialogList, it.dialogType)
                 }
-
             }
         ) }
     }
-    private fun handleProductDialog(products: List<CatalogProduct>, dialogType: DialogType) {
+    private fun handleProductDialog(products: List<CatalogProduct>, dialogType: TaxDialogType) {
         requireContext().dialogBuilder(
             "Select Product",
             extras = dialogType,

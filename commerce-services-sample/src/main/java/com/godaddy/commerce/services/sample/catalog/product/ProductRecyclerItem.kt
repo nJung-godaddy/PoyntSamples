@@ -40,6 +40,7 @@ inline fun CatalogProduct.mapToProductUiItems(): ProductRecyclerItem {
 
 inline fun CatalogProduct.mapToCategoryUiItems(
     isSelected: Boolean = false,
+    isAdded: Boolean = false,
     noinline onDeleteClicked: (CatalogProduct) -> Unit,
     noinline onSelectClicked: (CatalogProduct, Boolean) -> Unit,
 ): ProductRecyclerItem {

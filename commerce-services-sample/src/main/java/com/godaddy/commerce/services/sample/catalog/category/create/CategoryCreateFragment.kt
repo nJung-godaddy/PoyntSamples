@@ -22,11 +22,11 @@ class CategoryCreateFragment : CommonFragment<CategoryCreateFragmentBinding>(
 
     val allItems by observableField(
         stateFlow = { viewModel.stateFlow },
-        map = { addedItems + items }
+        map = { addedItems.values + items.values }
     )
-    val selectedProduct by observableField(
+    val selectedProductId by observableField(
         stateFlow = { viewModel.stateFlow },
-        map = CategoryCreateViewModel.State::selectedProduct
+        map = CategoryCreateViewModel.State::selectedProductId
     )
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)

@@ -2,7 +2,6 @@
 
 package com.godaddy.commerce.services.sample.catalog.category.create
 
-import android.view.View
 import androidx.lifecycle.viewModelScope
 import com.godaddy.commerce.catalog.model.CatalogCategoryTreeNode
 import com.godaddy.commerce.catalog.model.CatalogProduct
@@ -33,30 +32,45 @@ class CategoryCreateViewModel : CommonViewModel<CategoryCreateViewModel.State>(S
     private fun loadProducts(query: String? = null) {
         execute {
             val service = catalogServiceClient.getService().getOrThrow()
-            val bundle = ProductParamsExt.toBundle(
+            val request = ProductParamsExt.toBundle(
                 dataSource = DataSource.REMOTE_IF_EMPTY,
                 pageOffset = DEFAULT_CATEGORY_PRODUCTS_PAGE_OFFSET,
                 pageSize = DEFAULT_CATEGORY_PRODUCTS_PAGE_SIZE,
                 sortBy = CatalogContract.Product.Columns.UPDATED_AT,
                 searchTerm = query,
             )
-            val response = service.getCatalogProducts(bundle)
+            val response = service.getCatalogProducts(request)
             val products = response?.products.orEmpty()
-            update { copy (products = products) }
-            loadItems(products)
+            update { copy (
+                items = products.associate {
+                    requireNotNull(it.product.id) to it.mapToCategoryUiItems(
+                        onDeleteClicked = { catalogProduct -> removeProduct(catalogProduct) },
+                        onSelectClicked = { catalogProduct, _ -> selectProduct(catalogProduct) }
+                    )
+                }
+            )}
         }
     }
-    private fun loadItems(products: List<CatalogProduct>){
+    private fun selectProduct(catalogProduct: CatalogProduct) {
+        val id = requireNotNull(catalogProduct.product.id.orEmpty())
+        val item = requireNotNull(state.items[id])
         update { copy(
-            items = products.map {
-                it.mapToCategoryUiItems(
-                    onDeleteClicked = { catalogProduct -> removeProduct(catalogProduct) },
-                    onSelectClicked = { catalogProduct, _ -> selectProduct(catalogProduct) },
-                )
-            }
+            selectedProductId = id,
+            items = items.minus(id),
+            addedItems = addedItems.plus(Pair(id, item)),
+            categoryProducts = categoryProducts.plus(Pair(
+                id, CategoryProduct(id, state.categoryProducts.size + 1)))
         ) }
     }
-
+    private fun removeProduct(catalogProduct: CatalogProduct) {
+        val id = requireNotNull(catalogProduct.product.id.orEmpty())
+        val item = requireNotNull(state.addedItems[id])
+        update { copy(
+            categoryProducts = categoryProducts.minus(id),
+            addedItems =  addedItems.minus(id),
+            items = items.plus(Pair(id, item))
+        ) }
+    }
     fun onLabelChanged(value: String) {
         update { copy(label = value) }
     }
@@ -64,36 +78,6 @@ class CategoryCreateViewModel : CommonViewModel<CategoryCreateViewModel.State>(S
         value.toIntOrNull()?.let {
             update { copy(displayOrder = it) }
         }
-    }
-    private fun selectProduct(catalogProduct: CatalogProduct) {
-        if (state.addedProducts.contains(catalogProduct)){ return }
-        update { copy(
-            addedProducts = addedProducts + catalogProduct,
-            selectedProduct = catalogProduct,
-            items = items.filterNot { it.item == catalogProduct },
-            addedItems = addedItems + catalogProduct.mapToCategoryUiItems(
-                isSelected = true,
-                onDeleteClicked = {removeProduct(it)},
-                onSelectClicked = { _, _ -> }
-            ),
-            categoryProducts = categoryProducts +
-                CategoryProduct(
-                    id = requireNotNull(catalogProduct.product.id),
-                    displayOrder = state.categoryProducts.size + 1
-                )
-        ) }
-    }
-    private fun removeProduct(catalogProduct: CatalogProduct) {
-        update { copy(
-            addedProducts = addedProducts - catalogProduct,
-            categoryProducts = categoryProducts.filterNot { it.id == catalogProduct.product.id },
-            addedItems =  addedItems.filterNot {it.item == catalogProduct },
-            items = listOf(catalogProduct.mapToCategoryUiItems(
-                isSelected = false,
-                onDeleteClicked = { removeProduct(it) },
-                onSelectClicked = { _, _ -> selectProduct(catalogProduct) }
-            )) + items
-        ) }
     }
 
     fun create() {
@@ -105,7 +89,7 @@ class CategoryCreateViewModel : CommonViewModel<CategoryCreateViewModel.State>(S
                     label = label,
                     shortLabel = shortLabel,
                     displayOrder = state.displayOrder,
-                    products = state.categoryProducts,
+                    products = state.categoryProducts.values.toList(),
                 )
                 val categoryTreeNode = CategoryTreeNode(
                     category = category,
@@ -122,8 +106,7 @@ class CategoryCreateViewModel : CommonViewModel<CategoryCreateViewModel.State>(S
         }
     }
     /**
-     * @property addedProducts holds all current CatalogProducts to be added to the new category
-     * @property addedItems holds all the recyclable items of catalog products from addedProducts
+     * @property addedItems holds all the recyclable items of added products
      * @property products holds all un-added CatalogProducts, starts off initially as list of all products
      * @property items holds recyclable items from products
      */
@@ -133,16 +116,12 @@ class CategoryCreateViewModel : CommonViewModel<CategoryCreateViewModel.State>(S
         val label: String? = null,
         val displayOrder: Int? = null,
 
-        val addedProducts: List<CatalogProduct> = emptyList(),
-        val categoryProducts: List<CategoryProduct> = emptyList(),
-
-        val products: List<CatalogProduct> = emptyList(),
-        val items: List<ProductRecyclerItem> = emptyList(),
-        val addedItems: List<ProductRecyclerItem> = emptyList(),
+        val categoryProducts: Map<String, CategoryProduct> = emptyMap(),
+        val items: Map<String, ProductRecyclerItem> = emptyMap(),
+        val addedItems:Map<String, ProductRecyclerItem> = emptyMap(),
+        val selectedProductId: String? = null,
 
         val createdId: String? = null,
-
-        val selectedProduct: CatalogProduct? = null,
     ) : ViewModelState
 
     companion object{

@@ -33,7 +33,7 @@ class CategoryUpdateFragment :
     )
     val allItems by observableField(
         stateFlow = { viewModel.stateFlow },
-        map = { addedItems + items }
+        map = { addedItems.values + items.values }
     )
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {

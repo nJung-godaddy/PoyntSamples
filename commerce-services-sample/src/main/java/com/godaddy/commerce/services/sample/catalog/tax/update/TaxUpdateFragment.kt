@@ -7,11 +7,11 @@ import androidx.fragment.app.viewModels
 import com.godaddy.commerce.catalog.model.CatalogProduct
 import com.godaddy.commerce.sdk.util.isNotNullOrBlank
 import com.godaddy.commerce.services.sample.R
-import com.godaddy.commerce.services.sample.catalog.tax.update.TaxUpdateViewModel.DialogType
 import com.godaddy.commerce.services.sample.common.extensions.bindTo
 import com.godaddy.commerce.services.sample.common.extensions.dialogBuilder
 import com.godaddy.commerce.services.sample.common.extensions.launch
 import com.godaddy.commerce.services.sample.common.extensions.observableField
+import com.godaddy.commerce.services.sample.common.util.TaxDialogType
 import com.godaddy.commerce.services.sample.common.view.CommonFragment
 import com.godaddy.commerce.services.sample.common.view.bindOnCommonViewModelUpdates
 import com.godaddy.commerce.services.sample.databinding.TaxUpdateFragmentBinding
@@ -67,14 +67,13 @@ class TaxUpdateFragment :
             keySelector = { it.dialogType },
             map = { this },
             update = {
-                if (it.dialogType != null && it.dialogType != DialogType.NO_SHOW){
+                if (it.dialogType != null && it.dialogType != TaxDialogType.NO_SHOW){
                     handleProductDialog(it.dialogList, it.dialogType)
                 }
-
             }
         ) }
     }
-    private fun handleProductDialog(products: List<CatalogProduct>, dialogType: DialogType) {
+    private fun handleProductDialog(products: List<CatalogProduct>, dialogType: TaxDialogType) {
         requireContext().dialogBuilder(
             "Select Product",
             extras = dialogType,
@@ -83,12 +82,9 @@ class TaxUpdateFragment :
             onSelected = viewModel::handleProduct
         ).setOnDismissListener { viewModel.hideDialog() }.create().show()
     }
-
     private fun bindToTaxUpdatedEvents(){
         launch {
-            viewModel.stateFlow.bindTo(
-                TaxUpdateViewModel.State::updatedTaxId
-            ) { id ->
+            viewModel.stateFlow.bindTo(TaxUpdateViewModel.State::updatedTaxId) { id ->
                 if (id.isNotNullOrBlank()) {
                     return@bindTo Toast.makeText(
                         requireContext(),

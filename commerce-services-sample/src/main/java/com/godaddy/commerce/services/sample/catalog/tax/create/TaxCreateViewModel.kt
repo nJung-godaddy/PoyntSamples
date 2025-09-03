@@ -11,6 +11,7 @@ import com.godaddy.commerce.sdk.catalog.ProductParamsExt
 import com.godaddy.commerce.sdk.catalog.getCatalogProducts
 import com.godaddy.commerce.sdk.catalog.postCatalogTax
 import com.godaddy.commerce.services.sample.common.util.DEFAULT_CURRENCY_CODE
+import com.godaddy.commerce.services.sample.common.util.TaxDialogType
 import com.godaddy.commerce.services.sample.common.viewmodel.CommonState
 import com.godaddy.commerce.services.sample.common.viewmodel.CommonViewModel
 import com.godaddy.commerce.services.sample.common.viewmodel.ToolbarState
@@ -83,16 +84,15 @@ class TaxCreateViewModel : CommonViewModel<TaxCreateViewModel.State>(State()) {
         update { copy(createTaxClassification = isShow) }
     }
     fun hideDialog(){
-        update{ copy(dialogType = DialogType.NO_SHOW) }
+        update{ copy(dialogType = TaxDialogType.NO_SHOW) }
     }
     fun addClassificationProduct(){
         update {
             val classificationProducts = allProducts.filter {
                 !classificationProductIds.contains(it.product.id)
             }
-
             copy(
-                dialogType = DialogType.ADD_CLASSIFICATION,
+                dialogType = TaxDialogType.ADD_CLASSIFICATION,
                 dialogList = classificationProducts
             )
         }
@@ -103,7 +103,7 @@ class TaxCreateViewModel : CommonViewModel<TaxCreateViewModel.State>(State()) {
                 classificationProductIds.contains(it.product.id)
             }
             copy(
-                dialogType = DialogType.REMOVE_CLASSIFICATION,
+                dialogType = TaxDialogType.REMOVE_CLASSIFICATION,
                 dialogList = classificationProducts
             )
         }
@@ -114,7 +114,7 @@ class TaxCreateViewModel : CommonViewModel<TaxCreateViewModel.State>(State()) {
                 !overrideProductIds.contains(it.product.id)
             }
             copy(
-                dialogType = DialogType.ADD_OVERRIDE,
+                dialogType = TaxDialogType.ADD_OVERRIDE,
                 dialogList = overrideProducts
             )
         }
@@ -125,23 +125,23 @@ class TaxCreateViewModel : CommonViewModel<TaxCreateViewModel.State>(State()) {
                 overrideProductIds.contains(it.product.id)
             }
             copy(
-                dialogType = DialogType.REMOVE_OVERRIDE,
+                dialogType = TaxDialogType.REMOVE_OVERRIDE,
                 dialogList = overrideProducts
             )
         }
     }
-    fun handleProduct(catalogProduct: CatalogProduct, dialogType: DialogType) {
+    fun handleProduct(catalogProduct: CatalogProduct, dialogType: TaxDialogType) {
         val id = catalogProduct.product.id.toString()
-        if (dialogType == DialogType.ADD_CLASSIFICATION){
+        if (dialogType == TaxDialogType.ADD_CLASSIFICATION){
             update { copy (classificationProductIds = state.classificationProductIds.plus(id)) }
         }
-        else if (state.dialogType == DialogType.ADD_OVERRIDE){
+        else if (state.dialogType == TaxDialogType.ADD_OVERRIDE){
             update { copy (overrideProductIds = state.overrideProductIds.plus(id)) }
         }
-        else if (dialogType == DialogType.REMOVE_CLASSIFICATION){
+        else if (dialogType == TaxDialogType.REMOVE_CLASSIFICATION){
             update { copy (classificationProductIds = state.classificationProductIds.minus(id)) }
         }
-        else if (dialogType == DialogType.REMOVE_OVERRIDE){
+        else if (dialogType == TaxDialogType.REMOVE_OVERRIDE){
             update { copy (overrideProductIds = state.overrideProductIds.minus(id)) }
         }
     }
@@ -162,9 +162,9 @@ class TaxCreateViewModel : CommonViewModel<TaxCreateViewModel.State>(State()) {
                 )
             ) else emptyList()
 
+
             val percentage = if (state.taxType == "Percentage") state.percentage else null
             val amount = if (state.taxType == "Amount") state.amount else null
-
             val tax = Tax(
                 label = requireNotNull(state.label),
                 percentage = percentage,
@@ -172,7 +172,7 @@ class TaxCreateViewModel : CommonViewModel<TaxCreateViewModel.State>(State()) {
                 classifications = classifications,
                 overrides = overrides,
             )
-            val request = CatalogTax(tax = tax)
+            val request = CatalogTax(tax)
             val catalogService = catalogServiceClient.getService().getOrThrow()
             val response = catalogService.postCatalogTax(request)
             update { copy(createdId = response?.tax?.id) }
@@ -206,20 +206,11 @@ class TaxCreateViewModel : CommonViewModel<TaxCreateViewModel.State>(State()) {
         val overrideProductIds: Set<String> = emptySet(),
         val dialogList: List<CatalogProduct> = emptyList(),
         val allProducts: Set<CatalogProduct> = emptySet(),
-        val dialogType: DialogType? = null,
-
+        val dialogType: TaxDialogType? = null,
         ) : ViewModelState
 
     companion object{
         private const val DEFAULT_TAX_PRODUCTS_PAGE_SIZE = 100
         private const val DEFAULT_TAX_PRODUCTS_PAGE_OFFSET = 0
     }
-    enum class DialogType{
-        ADD_CLASSIFICATION,
-        ADD_OVERRIDE,
-        REMOVE_CLASSIFICATION,
-        REMOVE_OVERRIDE,
-        NO_SHOW,
-        }
-
 }

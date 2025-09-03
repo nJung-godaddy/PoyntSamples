@@ -16,9 +16,9 @@ import com.godaddy.commerce.sdk.catalog.deleteCatalogTax
 import com.godaddy.commerce.sdk.catalog.getCatalogProducts
 import com.godaddy.commerce.sdk.catalog.getCatalogTax
 import com.godaddy.commerce.sdk.catalog.patchCatalogTax
-import com.godaddy.commerce.sdk.util.isNotNullOrBlank
 import com.godaddy.commerce.services.sample.common.extensions.subscribeOnUpdates
 import com.godaddy.commerce.services.sample.common.util.DEFAULT_CURRENCY_CODE
+import com.godaddy.commerce.services.sample.common.util.TaxDialogType
 import com.godaddy.commerce.services.sample.common.viewmodel.CommonState
 import com.godaddy.commerce.services.sample.common.viewmodel.CommonViewModel
 import com.godaddy.commerce.services.sample.common.viewmodel.ToolbarState
@@ -66,31 +66,27 @@ class TaxUpdateViewModel(
             val response = service.getCatalogTax(id.orEmpty(), request)
             update {
                 val tax = requireNotNull(response?.tax)
-
                 val classifications = tax.classifications.orEmpty()
-                val selectedClassification = classifications.firstOrNull()
-                val classificationLabel = selectedClassification?.label.orEmpty()
-                val classificationProductIds = selectedClassification?.productIds.orEmpty()
-
+                val classification = classifications.firstOrNull()
                 val overrides = tax.overrides.orEmpty()
-                val selectedOverride = overrides.firstOrNull()
-                val overrideLabel = selectedOverride?.label.orEmpty()
-                val customRate = selectedOverride?.customRate
-                val overrideProductIds = selectedOverride?.productIds.orEmpty()
+                val override = overrides.firstOrNull()
+
                 copy(
                     label = tax.label,
                     amount = tax.amount,
                     percentage = tax.percentage,
                     status = tax.status,
-                    selectedClassification = selectedClassification,
+
                     availableClassifications = classifications,
-                    classificationLabel = classificationLabel,
-                    classificationProductIds = classificationProductIds,
-                    selectedOverride = selectedOverride,
+                    selectedClassification =  classification,
+                    classificationLabel = classification?.label,
+                    classificationProductIds = classification?.productIds.orEmpty(),
+
                     availableOverrides = overrides,
-                    overrideLabel = overrideLabel,
-                    overrideProductIds = overrideProductIds,
-                    customRate = customRate,
+                    selectedOverride = override,
+                    overrideLabel = override?.label,
+                    overrideProductIds = override?.productIds.orEmpty(),
+                    customRate = override?.customRate,
                     taxType = if (tax.amount != null) "Amount" else "Percentage",
                     toolbarState = toolbarState.copy(title = "Update Tax: ${tax.label}")
                 )
@@ -147,7 +143,7 @@ class TaxUpdateViewModel(
         update { copy(updateTaxClassification = isShow) }
     }
     fun hideDialog(){
-        update{ copy(dialogType = DialogType.NO_SHOW) }
+        update{ copy(dialogType = TaxDialogType.NO_SHOW) }
     }
     fun addClassificationProduct(){
         update {
@@ -155,7 +151,7 @@ class TaxUpdateViewModel(
                 !classificationProductIds.contains(it.product.id)
             }
             copy(
-                dialogType = DialogType.ADD_CLASSIFICATION,
+                dialogType = TaxDialogType.ADD_CLASSIFICATION,
                 dialogList = classificationProducts
             )
         }
@@ -166,7 +162,7 @@ class TaxUpdateViewModel(
                 classificationProductIds.contains(it.product.id)
             }
             copy(
-                dialogType = DialogType.REMOVE_CLASSIFICATION,
+                dialogType = TaxDialogType.REMOVE_CLASSIFICATION,
                 dialogList = classificationProducts
             )
         }
@@ -177,7 +173,7 @@ class TaxUpdateViewModel(
                 !overrideProductIds.contains(it.product.id)
             }
             copy(
-                dialogType = DialogType.ADD_OVERRIDE,
+                dialogType = TaxDialogType.ADD_OVERRIDE,
                 dialogList = overrideProducts
             )
         }
@@ -188,23 +184,23 @@ class TaxUpdateViewModel(
                 overrideProductIds.contains(it.product.id)
             }
             copy(
-                dialogType = DialogType.REMOVE_OVERRIDE,
+                dialogType = TaxDialogType.REMOVE_OVERRIDE,
                 dialogList = overrideProducts
             )
         }
     }
-    fun handleProduct(catalogProduct: CatalogProduct, dialogType: DialogType) {
+    fun handleProduct(catalogProduct: CatalogProduct, dialogType: TaxDialogType) {
         val id = catalogProduct.product.id.toString()
-        if (dialogType == DialogType.ADD_CLASSIFICATION){
+        if (dialogType == TaxDialogType.ADD_CLASSIFICATION){
             update { copy (classificationProductIds = state.classificationProductIds.plus(id)) }
         }
-        else if (state.dialogType == DialogType.ADD_OVERRIDE){
+        else if (state.dialogType == TaxDialogType.ADD_OVERRIDE){
             update { copy (overrideProductIds = state.overrideProductIds.plus(id)) }
         }
-        else if (dialogType == DialogType.REMOVE_CLASSIFICATION){
+        else if (dialogType == TaxDialogType.REMOVE_CLASSIFICATION){
             update { copy (classificationProductIds = state.classificationProductIds.minus(id)) }
         }
-        else if (dialogType == DialogType.REMOVE_OVERRIDE){
+        else if (dialogType == TaxDialogType.REMOVE_OVERRIDE){
             update { copy (overrideProductIds = state.overrideProductIds.minus(id)) }
         }
     }
@@ -257,7 +253,7 @@ class TaxUpdateViewModel(
                 includeOverrides = true,
                 includeClassification = true,
             )
-            val response = catalogService.deleteCatalogTax(id.orEmpty(), request)
+            catalogService.deleteCatalogTax(id.orEmpty(), request)
         }
             sendEffect(Effect.ShowToast("Tax $id was removed"))
             sendEffect(Effect.PopScreen)
@@ -293,21 +289,13 @@ class TaxUpdateViewModel(
         // Fields for handling product mapping
         val classificationProductIds: Set<String> = emptySet(),
         val overrideProductIds: Set<String> = emptySet(),
-
         val allProducts: Set<CatalogProduct> = emptySet(),
         val dialogList: List<CatalogProduct> = emptyList(),
-        val dialogType: DialogType? = null,
+        val dialogType: TaxDialogType? = null,
     ) : ViewModelState
 
     companion object{
         private const val DEFAULT_TAX_PRODUCTS_PAGE_SIZE = 100
         private const val DEFAULT_TAX_PRODUCTS_PAGE_OFFSET = 0
-    }
-    enum class DialogType{
-        ADD_CLASSIFICATION,
-        ADD_OVERRIDE,
-        REMOVE_CLASSIFICATION,
-        REMOVE_OVERRIDE,
-        NO_SHOW,
     }
 }
